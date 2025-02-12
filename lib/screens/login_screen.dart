@@ -133,6 +133,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               SizedBox(height: 6),
              // Text(AppStrings.signInToYourAccount, style: AppTheme.bodySmall),
+             //probando
             ],
           ),
           Form(
