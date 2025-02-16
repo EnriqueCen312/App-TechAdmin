@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -14,7 +12,9 @@ import '../values/app_constants.dart';
 import '../values/app_routes.dart';
 import '../values/app_strings.dart';
 import '../values/app_theme.dart';
-import 'home_page/home_page.dart';
+import '../connection/auth/AuthController.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -32,32 +32,11 @@ class _LoginPageState extends State<LoginPage> {
   late final TextEditingController emailController;
   late final TextEditingController passwordController;
 
-  Future<String?> login(String correo, String contrasena) async {
-    final url = Uri.parse('https://techadminapirest.onrender.com/api/auth/login/');
-    try{    
-    final response = await http.post(
-      url,
-      body: json.encode({
-        'correo': correo,
-        'contrasena': contrasena,
-      }),
-      headers: {'Content-Type': 'application/json'},
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final token = data['token'];
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('jwt_token', token.toString());
-      await prefs.setString('idroles', data['idroles'].toString());
-      return token.toString();
-    } else {
-      throw Exception('Login failed');
-    } } catch (e) {
-    // Log para depuración
-    return null; // Devolver null en caso de error
-  }
+  Future<AuthResponse?> login(String correo, String contrasena) async {
+    final AuthController auth = AuthController();
+   
+    final AuthResponse response = await auth.signIn(correo, contrasena);
+    return response;   
   }
 
   void initializeControllers() {
@@ -83,29 +62,39 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+
   Future<void> handleLogin() async {
-    final email = emailController.text;
-    final password = passwordController.text;
-    final token = await login(email, password);
-    final prefs = await SharedPreferences.getInstance();
-    String? idroles = prefs.getString('idroles');
+    try {
+        final email = emailController.text.trim();
+        final password = passwordController.text;
 
-    if (token != null && token.isNotEmpty && idroles == 'e4b8d846-8bb2-4f16-bd9d-5b45777d2f6f') {
-      SnackbarHelper.showSnackBar(AppStrings.loggedIn);
+        final AuthResponse? userResponse = await login(email, password);
 
-      emailController.clear();
-      passwordController.clear();
+        if (userResponse != null && userResponse.user != null) {
+            SnackbarHelper.showSnackBar(AppStrings.loggedIn);
 
-      // Redirigir a otra página
-      
-      NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
+            final prefs = await SharedPreferences.getInstance();
 
-    
-      
-    } else {
-      SnackbarHelper.showSnackBar(AppStrings.uhOhPageNotFound);
+            final userJson = jsonEncode({
+            'id': userResponse.user!.id,
+            'email': userResponse.user!.email,
+            'name': userResponse.user!.userMetadata?['name'] ?? 'Usuario',
+            });
+
+            await prefs.setString('user', userJson);
+
+            emailController.clear();
+            passwordController.clear();
+
+            NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
+        } else {
+            SnackbarHelper.showSnackBar(AppStrings.uhOhPageNotFound);
+        }
+    } catch (e) {
+        SnackbarHelper.showSnackBar("Error: $e");
     }
   }
+
 
   @override
   void initState() {

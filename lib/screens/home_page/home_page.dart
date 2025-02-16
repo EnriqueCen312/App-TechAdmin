@@ -162,7 +162,7 @@ class HomePage extends StatelessWidget {
                           category['subtitle'] as String,
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Color.fromARGB(179, 0, 0, 0),
+                            color: Colors.white,
                           ),
                           textAlign: TextAlign.center,
                         ),

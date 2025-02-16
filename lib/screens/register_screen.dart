@@ -1,8 +1,9 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:login_register_app/utils/helpers/snackbar_helper.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import '../connection/auth/AuthController.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../components/app_text_form_field.dart';
 import '../utils/common_widgets/gradient_background.dart';
 import '../utils/helpers/navigation_helper.dart';
@@ -70,28 +71,43 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> registerUser() async {
-    final response = await http.post(
-      Uri.parse('https://techadminapirest.onrender.com/api/auth/register/'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'nombres': nameController.text,
-        'apellidos': lastNameController.text,
-        'correo': emailController.text,
-        'contrasena': passwordController.text,
-        'idroles': 'e4b8d846-8bb2-4f16-bd9d-5b45777d2f6f',
-      }),
-    );
+    String nombre = nameController.text;
+    String apellido = lastNameController.text;
+    String nombreCompleto = nombre + ' ' + apellido;
+    String correo = emailController.text;
+    String contrasena = passwordController.text;
+    try{
+        final AuthController auth = AuthController();
+        final AuthResponse response = await auth.signUp(nombreCompleto, correo, contrasena);
+    
+        if(response.user != null){
+        
+            SnackbarHelper.showSnackBar(AppStrings.registrationComplete);
+            final prefs = await SharedPreferences.getInstance();
 
-    if (response.statusCode == 201) {
-      SnackbarHelper.showSnackBar(AppStrings.registrationComplete);
-      nameController.clear();
-      lastNameController.clear();
-      emailController.clear();
-      passwordController.clear();
-      confirmPasswordController.clear();
-    } else {
-      SnackbarHelper.showSnackBar('Registration failed: ${response.body}');
-    }
+            final userJson = jsonEncode({
+            'id': response.user!.id,
+            'email': response.user!.email,
+            'name': response.user!.userMetadata?['name'] ?? 'Usuario',
+
+            });
+
+            await prefs.setString('user', userJson);
+
+            nameController.clear();
+            lastNameController.clear();
+            emailController.clear();
+            passwordController.clear();
+            confirmPasswordController.clear();
+
+            NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
+        }else{
+            SnackbarHelper.showSnackBar('Registro fallido');
+        }    
+    
+    }catch(e){
+        SnackbarHelper.showSnackBar("Error: $e");    
+    }      
   }
 
   @override
