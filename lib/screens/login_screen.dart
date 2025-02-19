@@ -32,11 +32,10 @@ class _LoginPageState extends State<LoginPage> {
   late final TextEditingController emailController;
   late final TextEditingController passwordController;
 
-  Future<AuthResponse?> login(String correo, String contrasena) async {
+  Future<Map<String, dynamic>> login(String correo, String contrasena) async {
     final AuthController auth = AuthController();
-   
-    final AuthResponse response = await auth.signIn(correo, contrasena);
-    return response;   
+    final Map<String, dynamic> response = await auth.signIn(correo, contrasena);
+    return response;
   }
 
   void initializeControllers() {
@@ -68,32 +67,32 @@ class _LoginPageState extends State<LoginPage> {
         final email = emailController.text.trim();
         final password = passwordController.text;
 
-        final AuthResponse? userResponse = await login(email, password);
+        final response = await login(email, password);
 
-        if (userResponse != null && userResponse.user != null) {
+        if (response['success']) {
             SnackbarHelper.showSnackBar(AppStrings.loggedIn);
-
+            
             final prefs = await SharedPreferences.getInstance();
 
             final userJson = jsonEncode({
-            'id': userResponse.user!.id,
-            'email': userResponse.user!.email,
-            'name': userResponse.user!.userMetadata?['name'] ?? 'Usuario',
-            });
+           'id': response['user'].id,
+           'email': response['user'].email,
+           'name': response['user'].userMetadata?['name'] ?? 'Usuario',
+        });
 
-            await prefs.setString('user', userJson);
+        await prefs.setString('user', userJson);
 
-            emailController.clear();
-            passwordController.clear();
+        emailController.clear();
+        passwordController.clear();
 
-            NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
-        } else {
-            SnackbarHelper.showSnackBar(AppStrings.uhOhPageNotFound);
-        }
+        NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
+     } else {
+        SnackbarHelper.showSnackBar(response['error']);
+       }
     } catch (e) {
-        SnackbarHelper.showSnackBar("Error: $e");
+            SnackbarHelper.showSnackBar("Error inesperado: $e");
+      }
     }
-  }
 
 
   @override

@@ -70,45 +70,47 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  Future<void> registerUser() async {
-    String nombre = nameController.text;
-    String apellido = lastNameController.text;
-    String nombreCompleto = nombre + ' ' + apellido;
-    String correo = emailController.text;
-    String contrasena = passwordController.text;
-    try{
-        final AuthController auth = AuthController();
-        final AuthResponse response = await auth.signUp(nombreCompleto, correo, contrasena);
-    
-        if(response.user != null){
-        
-            SnackbarHelper.showSnackBar(AppStrings.registrationComplete);
-            final prefs = await SharedPreferences.getInstance();
+Future<void> registerUser() async {
+  String nombre = nameController.text.trim();
+  String apellido = lastNameController.text.trim();
+  String nombreCompleto = "$nombre $apellido";
+  String correo = emailController.text.trim();
+  String contrasena = passwordController.text;
 
-            final userJson = jsonEncode({
-            'id': response.user!.id,
-            'email': response.user!.email,
-            'name': response.user!.userMetadata?['name'] ?? 'Usuario',
+  try {
+    final AuthController auth = AuthController();
+    final response = await auth.signUp(nombreCompleto, correo, contrasena);
 
-            });
+    if (response['success']) {
+      SnackbarHelper.showSnackBar(AppStrings.registrationComplete);
 
-            await prefs.setString('user', userJson);
+      final prefs = await SharedPreferences.getInstance();
 
-            nameController.clear();
-            lastNameController.clear();
-            emailController.clear();
-            passwordController.clear();
-            confirmPasswordController.clear();
+      final userJson = jsonEncode({
+        'id': response['user'].id,
+        'email': response['user'].email,
+        'name': response['user'].userMetadata?['name'] ?? 'Usuario',
+      });
 
-            NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
-        }else{
-            SnackbarHelper.showSnackBar('Registro fallido');
-        }    
-    
-    }catch(e){
-        SnackbarHelper.showSnackBar("Error: $e");    
-    }      
+      await prefs.setString('user', userJson);
+
+      // Limpiar campos
+      nameController.clear();
+      lastNameController.clear();
+      emailController.clear();
+      passwordController.clear();
+      confirmPasswordController.clear();
+
+      // Navegar a la página principal
+      NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
+    } else {
+      SnackbarHelper.showSnackBar(response['error']); 
+    }
+  } catch (e) {
+    SnackbarHelper.showSnackBar("Error inesperado: $e");
+    print(e);
   }
+}
 
   @override
   void initState() {

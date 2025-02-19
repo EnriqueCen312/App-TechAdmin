@@ -37,9 +37,9 @@ class MyApp extends StatelessWidget {
 
 class HomePage extends StatelessWidget {
   HomePage({super.key}) {
-    getUserData();
+    //getUserData();
   }
-
+/*
   Future<void> getUserData() async {
     final prefs = await SharedPreferences.getInstance();
     String? token = prefs.getString('token');
@@ -53,7 +53,7 @@ class HomePage extends StatelessWidget {
       email = 'Correo';
     }
   }
-
+*/
   String name = '';
   String email = '';
 
