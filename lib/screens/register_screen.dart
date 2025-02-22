@@ -84,16 +84,6 @@ Future<void> registerUser() async {
     if (response['success']) {
       SnackbarHelper.showSnackBar(AppStrings.registrationComplete);
 
-      final prefs = await SharedPreferences.getInstance();
-
-      final userJson = jsonEncode({
-        'id': response['user'].id,
-        'email': response['user'].email,
-        'name': response['user'].userMetadata?['name'] ?? 'Usuario',
-      });
-
-      await prefs.setString('user', userJson);
-
       // Limpiar campos
       nameController.clear();
       lastNameController.clear();
@@ -108,7 +98,6 @@ Future<void> registerUser() async {
     }
   } catch (e) {
     SnackbarHelper.showSnackBar("Error inesperado: $e");
-    print(e);
   }
 }
 

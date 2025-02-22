@@ -70,29 +70,20 @@ class _LoginPageState extends State<LoginPage> {
         final response = await login(email, password);
 
         if (response['success']) {
-            SnackbarHelper.showSnackBar(AppStrings.loggedIn);
+          
+          SnackbarHelper.showSnackBar(AppStrings.loggedIn);
             
-            final prefs = await SharedPreferences.getInstance();
+          emailController.clear();
+          passwordController.clear();
 
-            final userJson = jsonEncode({
-           'id': response['user'].id,
-           'email': response['user'].email,
-           'name': response['user'].userMetadata?['name'] ?? 'Usuario',
-        });
-
-        await prefs.setString('user', userJson);
-
-        emailController.clear();
-        passwordController.clear();
-
-        NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
-     } else {
-        SnackbarHelper.showSnackBar(response['error']);
-       }
+          NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
+        } else {
+          SnackbarHelper.showSnackBar(response['error']);
+          }
     } catch (e) {
             SnackbarHelper.showSnackBar("Error inesperado: $e");
       }
-    }
+  }
 
 
   @override
