@@ -92,7 +92,7 @@ Future<void> registerUser() async {
       confirmPasswordController.clear();
 
       // Navegar a la página principal
-      NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
+      NavigationHelper.pushReplacementNamed(AppRoutes.bottomNavigationPage); // Cambiar a la ruta correcta
     } else {
       SnackbarHelper.showSnackBar(response['error']); 
     }

@@ -1,29 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../connection/auth/AuthController.dart';
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tech Admin',
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(
-          Theme.of(context).textTheme,
-        ),
-      ),
-      home: const HomePage(),
-    );
-  }
-}
+import 'package:login_register_app/connection/auth/AuthController.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,22 +12,27 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final SupabaseClient supabase;
+  List<Map<String, dynamic>> workshops = [];
 
-  final List<Map<String, dynamic>> _workshops = [
-    {'title': 'Taller Mecánico López', 'distance': '2.5 km'},
-    {'title': 'AutoFix Express', 'distance': '3.1 km'},
-    {'title': 'Servicio Rápido García', 'distance': '1.8 km'},
-    {'title': 'Taller El Turbo', 'distance': '4.0 km'},
-    {'title': 'AutoDoctor', 'distance': '2.2 km'},
-    {'title': 'Mecánica Total', 'distance': '3.7 km'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    supabase = Supabase.instance.client;
+    _fetchWorkshops();
+  }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  Future<void> _fetchWorkshops() async {
+    try {
+      final response = await supabase.from('talleres').select().limit(10);
+
+      setState(() {
+        workshops = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (error) {
+      print('Error fetching workshops: $error');
+    }
   }
 
   @override
@@ -96,76 +80,89 @@ class _HomePageState extends State<HomePage> {
               title: const Text("Cerrar sesión"),
               onTap: () async {
                 final AuthController logOut = AuthController();
-                await logOut.logout(context);                 
+                await logOut.logout(context);
               },
             ),
           ],
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.0, // Hace que las tarjetas sean cuadradas
-          ),
-          itemCount: _workshops.length,
-          itemBuilder: (context, index) {
-            final workshop = _workshops[index];
-            return Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+      body: workshops.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: ListView.builder(
+                itemCount: workshops.length,
+                itemBuilder: (context, index) {
+                  final workshop = workshops[index];
+                  return Card(
+                    elevation: 6,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                          child: workshop['imagenes'].isNotEmpty
+                              ? Image.memory(
+                                  base64Decode(workshop['imagenes'][0]),
+                                  width: double.infinity,
+                                  height: 180,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.asset(
+                                  'assets/images/descarga.jpeg',
+                                  width: double.infinity,
+                                  height: 180,
+                                  fit: BoxFit.cover,
+                                ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                workshop['nombre'],
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                workshop['direccion'] ?? 'No disponible',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue.shade900,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  onPressed: () {},
+                                  child: const Text('Agendar cita'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-              child: InkWell(
-                onTap: () {},
-                borderRadius: BorderRadius.circular(16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/images/descarga.jpeg',
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      workshop['title'],
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    Text(
-                      workshop['distance'],
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Inicio"),
-          BottomNavigationBarItem(icon: Icon(Icons.directions_car), label: "Vehículos"),
-          BottomNavigationBarItem(icon: Icon(Icons.event), label: "Citas"),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: "Historial"),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue.shade900,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-      ),
+            ),
     );
   }
 }

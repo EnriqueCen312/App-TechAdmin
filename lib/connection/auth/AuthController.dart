@@ -20,33 +20,43 @@ Future<Map<String, dynamic>> signUp(String name, String email, String password) 
       data: {'name': name},
     );
 
-    //obtener id asignado
-    String? userId = response.user?.id;
-
     final hashedPassword = sha256.convert(utf8.encode(password)).toString();
 
-    final user = response.user;
 
     //insertar en tabla usuarios_app
     await supabase.from('usuarios_app').insert({
-      'user_id': userId,
       'nombre': name,
       'email': email,
       'password': hashedPassword,
     });
 
-    //guardar datos en preferences
-    final prefs = await SharedPreferences.getInstance();
+    //obtener datos de usuario 
+    final usuario = await supabase
+        .from('usuarios_app')
+        .select('*')
+        .eq('email', email) // Filtrar por email
+        .maybeSingle(); // Devuelve null si no encuentra un usuario
 
-    final userJson = jsonEncode({
-      'id': user?.id ?? '',
-      'email': user?.email ?? '',
-      'name': user?.userMetadata?['name'] ?? 'Usuario', //Asignar 'Usuario' en caso de null
-    });
+    if (usuario != null){
+    
+        //guardar datos en preferences
+        final prefs = await SharedPreferences.getInstance();
+
+        final userJson = jsonEncode({
+           'id': usuario['id'] ?? '',
+           'email': usuario['email'] ?? '',
+           'name': usuario['nombre'] ?? '', 
+         });
+
+        print(userJson);
 
     await prefs.setString('user', userJson);
 
     return {'success': true, 'message': 'Registro exitoso'};
+
+    }
+
+    return {'success': false, 'message': 'Error inesperado'};
 
   } catch (e) {
       String errorMessage = e.toString();
@@ -79,7 +89,11 @@ Future<Map<String, dynamic>> signIn(String email, String password) async {
       password: password,
     );
 
-    final user = response.user;
+    final user = await supabase
+        .from('usuarios_app')
+        .select('*')
+        .eq('email', cleanEmail) // Filtrar por email
+        .maybeSingle(); // Devuelve null si no encuentra un usuario
 
     if (user == null) {
       return {'success': false, 'error': 'No se pudo iniciar sesión'};
@@ -87,10 +101,10 @@ Future<Map<String, dynamic>> signIn(String email, String password) async {
 
       final prefs = await SharedPreferences.getInstance();
 
-      final userJson = jsonEncode({
-      'id': user.id,
-      'email': user.email,
-      'name': user.userMetadata?['name'] ?? 'Usuario',
+      final userJson = jsonEncode({     
+        'id': user['id'] ?? '',
+        'email': user['email'] ?? '',
+        'name': user['nombre'] ?? '', 
       });
 
       await prefs.setString('user', userJson);
@@ -113,6 +127,27 @@ Future<Map<String, dynamic>> signIn(String email, String password) async {
       MaterialPageRoute(builder: (context) => LoginPage()), // Redirige a la pantalla de login
       (Route<dynamic> route) => false, // Elimina todas las pantallas anteriores
     );
+  }
+
+  Future<int?> getUserId() async {
+    try {
+
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = prefs.getString('user');
+
+      if (userJson != null) {
+        final Map<String, dynamic> user = jsonDecode(userJson);
+
+        int id = user['id'];
+        return id;
+
+      }
+      return null;
+
+    } catch (e) {
+      print('Error al obtener el ID: $e');
+      return null;
+    }
   }
 
 }

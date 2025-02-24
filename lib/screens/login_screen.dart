@@ -76,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
           emailController.clear();
           passwordController.clear();
 
-          NavigationHelper.pushReplacementNamed(AppRoutes.home_page);
+          NavigationHelper.pushReplacementNamed(AppRoutes.bottomNavigationPage); // Cambiar a la ruta correcta
         } else {
           SnackbarHelper.showSnackBar(response['error']);
           }
