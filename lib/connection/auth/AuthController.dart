@@ -19,6 +19,10 @@ Future<Map<String, dynamic>> signUp(String name, String email, String password) 
       password: password,
       data: {'name': name},
     );
+    
+    if (response.user == null) {
+      return {'success': false, 'error': 'Ha ocurrido un error'};
+    }
 
     final hashedPassword = sha256.convert(utf8.encode(password)).toString();
 
@@ -88,6 +92,10 @@ Future<Map<String, dynamic>> signIn(String email, String password) async {
       email: email,
       password: password,
     );
+
+    if (response.user == null) {
+      return {'success': false, 'error': 'Credenciales incorrectas'};
+    }
 
     final user = await supabase
         .from('usuarios_app')
