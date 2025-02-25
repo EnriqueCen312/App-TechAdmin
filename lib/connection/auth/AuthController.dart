@@ -9,68 +9,65 @@ class AuthController {
 
 final supabase = Supabase.instance.client;
 
-
 Future<Map<String, dynamic>> signUp(String name, String email, String password) async {
   try {
+    final String cleanEmail = email.trim().toLowerCase();
 
-    //guardar en auth.users
+    //Intentar registrar al usuario en Supabase Auth
     final AuthResponse response = await supabase.auth.signUp(
-      email: email,
+      email: cleanEmail,
       password: password,
       data: {'name': name},
     );
-    
+
     if (response.user == null) {
-      return {'success': false, 'error': 'Ha ocurrido un error'};
+      return {'success': false, 'error': 'No se pudo registrar el usuario'};
     }
 
     final hashedPassword = sha256.convert(utf8.encode(password)).toString();
 
-
-    //insertar en tabla usuarios_app
-    await supabase.from('usuarios_app').insert({
+    //Insertar en usuarios_app
+    final responseDb = await supabase.from('usuarios_app').insert({
       'nombre': name,
-      'email': email,
+      'email': cleanEmail,
       'password': hashedPassword,
+    }).select().maybeSingle(); //devuelve datos o null en caso de error
+
+    if (responseDb == null) {
+      // Si la inserción en usuarios_app falla, eliminar al usuario de auth.users
+      await supabase.auth.admin.deleteUser(response.user!.id);
+      return {'success': false, 'error': 'Error al completar el registro'};
+    }
+
+    //Confirmar que el usuario tiene una sesión activa antes de guardar en SharedPreferences
+    final session = supabase.auth.currentSession;
+
+    if (session == null) {
+      return {'success': false, 'error': 'No se pudo autenticar el usuario'};
+    }
+
+    //Guardar datos en SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = jsonEncode({
+      'id': responseDb['id'] ?? '',
+      'email': responseDb['email'] ?? '',
+      'name': responseDb['nombre'] ?? '',
     });
-
-    //obtener datos de usuario 
-    final usuario = await supabase
-        .from('usuarios_app')
-        .select('*')
-        .eq('email', email) // Filtrar por email
-        .maybeSingle(); // Devuelve null si no encuentra un usuario
-
-    if (usuario != null){
-    
-        //guardar datos en preferences
-        final prefs = await SharedPreferences.getInstance();
-
-        final userJson = jsonEncode({
-           'id': usuario['id'] ?? '',
-           'email': usuario['email'] ?? '',
-           'name': usuario['nombre'] ?? '', 
-         });
-
-        print(userJson);
 
     await prefs.setString('user', userJson);
 
     return {'success': true, 'message': 'Registro exitoso'};
 
+  } on AuthException catch (e) {
+    if (e.statusCode == "400" || e.message.contains("User already registered")) {
+      return {'success': false, 'error': 'El correo ya está en uso'};
     }
-
-    return {'success': false, 'message': 'Error inesperado'};
-
+    return {'success': false, 'error': e.message};
   } catch (e) {
-      String errorMessage = e.toString();
-
-      if (errorMessage.contains("User already registered")) {
-        return {'success': false, 'error': 'El correo ya está en uso'};
-      }
-      return {'success': false, 'error': errorMessage};    
+    return {'success': false, 'error': e.toString()};
   }
 }
+
 
 Future<Map<String, dynamic>> signIn(String email, String password) async {
   try {
