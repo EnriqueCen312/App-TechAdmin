@@ -5,14 +5,16 @@ import 'package:login_register_app/screens/appointments/appointments_screen.dart
 import 'package:login_register_app/screens/history/history_screen.dart';
 
 class BottomNavigationPage extends StatefulWidget {
-  const BottomNavigationPage({super.key});
+  final int initialIndex;
+
+  const BottomNavigationPage({super.key, this.initialIndex = 0});  // Acepta un índice inicial
 
   @override
   _BottomNavigationPageState createState() => _BottomNavigationPageState();
 }
 
 class _BottomNavigationPageState extends State<BottomNavigationPage> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
   final List<Widget> _screens = [
     const HomePage(),            // Pantalla de Inicio (índice 0)
@@ -20,6 +22,12 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
     const AppointmentsScreen(),  // Pantalla de Citas (índice 2)
     const HistoryScreen(),       // Pantalla de Historial (índice 3)
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex; // Usa el índice inicial
+  }
 
   void _onItemTapped(int index) {
     setState(() {

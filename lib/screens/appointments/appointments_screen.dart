@@ -5,8 +5,11 @@ class AppointmentsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text('Pantalla de Citas'),
+    return const Center(
+      child: Text(
+        'Pantalla de citas',
+        style: TextStyle(fontSize: 18),
+      ),
     );
   }
 }

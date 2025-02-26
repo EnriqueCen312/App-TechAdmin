@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:login_register_app/connection/auth/AuthController.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:login_register_app/connection/Home/HomeController.dart';
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:login_register_app/values/app_routes.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,184 +14,33 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  late final SupabaseClient supabase;
-  List<Map<String, dynamic>> workshops = [];
-  bool isBooking = false;
-  Map<String, dynamic>? selectedWorkshop; // Cambiado a nullable
-  DateTime? selectedDate;
-  TimeOfDay? selectedTime;
-  String? selectedVehicle;
-  String? appointmentDescription;
-  List<TimeOfDay> availableTimeSlots = [];
+  late final HomeController controller;
 
   @override
   void initState() {
     super.initState();
-    supabase = Supabase.instance.client;
-    _fetchWorkshops();
+    controller = HomeController();
+    _loadWorkshops();
   }
-
-  Future<void> _fetchWorkshops() async {
+  
+  Future<void> _loadWorkshops() async {
     try {
-      final response = await supabase.from('talleres').select().limit(10);
-      setState(() {
-        workshops = List<Map<String, dynamic>>.from(response);
-      });
+      await controller.fetchWorkshops();
+      setState(() {}); // Refresh UI after fetching workshops
     } catch (error) {
-      print('Error fetching workshops: $error');
+      // Handle error if needed
+      print('Error loading workshops: $error');
     }
-  }
-
-  Future<int?> _getUserId() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userJson = prefs.getString('user');
-      if (userJson != null) {
-        final Map<String, dynamic> user = jsonDecode(userJson);
-        return user['id'];
-      }
-      return null;
-    } catch (e) {
-      print('Error al obtener el ID: $e');
-      return null;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchUserVehicles(int userId) async {
-    final response = await supabase.from('vehiculos').select().eq('usuario_app_id', userId);
-    return List<Map<String, dynamic>>.from(response);
-  }
-
-  Future<void> _bookAppointment() async {
-    final userId = await _getUserId();
-    if (userId != null && selectedDate != null && selectedTime != null && selectedVehicle != null && appointmentDescription != null) {
-      try {
-        final response = await supabase.from('citas').insert([
-          {
-            'automovil_id': selectedVehicle,
-            'fecha': selectedDate?.toIso8601String(),
-            'hora': selectedTime?.format(context),
-            'auth_id': userId,
-            'taller_id': selectedWorkshop!['id'],
-            'estado': 'pendiente',
-            'descripcion': appointmentDescription,
-          },
-        ]);
-        
-        if (response == null) { // Cambiado para compatibilidad con Supabase reciente
-          Navigator.of(context).pop(); // Close bottom sheet
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cita agendada exitosamente'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.pushNamed(context, '/appointments');
-        } else {
-          print('Error al agendar la cita');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error al agendar la cita'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } catch (e) {
-        print('Exception al agendar la cita: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al agendar la cita: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor complete todos los campos'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
-  }
-
-  void _generateAvailableTimeSlots() {
-    if (selectedDate == null || selectedWorkshop == null) return;
-    
-    // Parse workshop opening and closing times
-    final String opensStr = selectedWorkshop!['abre'] ?? '08:00:00';
-    final String closesStr = selectedWorkshop!['cierra'] ?? '18:00:00';
-    final int intervalMinutes = selectedWorkshop!['intervalo_minutes'] ?? 30;
-    
-    // Parse time strings to TimeOfDay
-    final TimeOfDay opens = _parseTimeString(opensStr);
-    final TimeOfDay closes = _parseTimeString(closesStr);
-    
-    // Generate time slots
-    List<TimeOfDay> slots = [];
-    
-    // Start with opening time
-    int currentHour = opens.hour;
-    int currentMinute = opens.minute;
-    
-    while (true) {
-      // Add interval to current time
-      currentMinute += intervalMinutes;
-      if (currentMinute >= 60) {
-        currentHour += currentMinute ~/ 60;
-        currentMinute = currentMinute % 60;
-      }
-      
-      // Create time slot
-      final TimeOfDay timeSlot = TimeOfDay(hour: currentHour, minute: currentMinute);
-      
-      // Check if we've passed closing time
-      if (_timeOfDayToMinutes(timeSlot) > _timeOfDayToMinutes(closes)) {
-        break;
-      }
-      
-      slots.add(timeSlot);
-    }
-    
-    setState(() {
-      availableTimeSlots = slots;
-      // Reset selected time if it's not in available slots
-      if (selectedTime != null && !_isTimeInSlots(selectedTime!, slots)) {
-        selectedTime = null;
-      }
-    });
-  }
-
-  TimeOfDay _parseTimeString(String timeStr) {
-    final parts = timeStr.split(':');
-    return TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
-  }
-
-  int _timeOfDayToMinutes(TimeOfDay time) {
-    return time.hour * 60 + time.minute;
-  }
-
-  bool _isTimeInSlots(TimeOfDay time, List<TimeOfDay> slots) {
-    final timeMinutes = _timeOfDayToMinutes(time);
-    return slots.any((slot) => _timeOfDayToMinutes(slot) == timeMinutes);
   }
 
   void _showBookingBottomSheet(Map<String, dynamic> workshop) async {
     setState(() {
-      isBooking = true;
-      selectedWorkshop = workshop;
-      selectedDate = null;
-      selectedTime = null;
-      selectedVehicle = null;
-      appointmentDescription = null;
+      controller.selectWorkshop(workshop);
     });
     
-    final userId = await _getUserId();
+    final userId = await controller.getUserId();
     if (userId != null) {
-      final vehicles = await _fetchUserVehicles(userId);
+      final vehicles = await controller.fetchUserVehicles(userId);
       
       showModalBottomSheet(
         context: context,
@@ -199,7 +48,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.transparent,
         builder: (context) {
           return StatefulBuilder(
-            builder: (context, setState) {
+            builder: (context, setSheetState) {
               return Container(
                 height: MediaQuery.of(context).size.height * 0.8,
                 decoration: BoxDecoration(
@@ -281,10 +130,6 @@ class _HomePageState extends State<HomePage> {
                                 'Cierra: ${workshop['cierra']?.toString().substring(0, 5) ?? '18:00'}',
                                 style: const TextStyle(color: Colors.white),
                               ),
-                              Text(
-                                'Intervalo: ${workshop['intervalo_minutes'] ?? '30'} min',
-                                style: const TextStyle(color: Colors.white),
-                              ),
                             ],
                           ),
                         ],
@@ -326,10 +171,10 @@ class _HomePageState extends State<HomePage> {
                                 child: DropdownButton<String>(
                                   isExpanded: true,
                                   hint: const Text('Seleccionar vehículo'),
-                                  value: selectedVehicle,
+                                  value: controller.selectedVehicle,
                                   onChanged: (value) {
-                                    setState(() {
-                                      selectedVehicle = value;
+                                    setSheetState(() {
+                                      controller.setVehicle(value!);
                                     });
                                   },
                                   items: vehicles.map<DropdownMenuItem<String>>((vehicle) {
@@ -357,7 +202,7 @@ class _HomePageState extends State<HomePage> {
                               onTap: () async {
                                 final DateTime? pickedDate = await showDatePicker(
                                   context: context,
-                                  initialDate: selectedDate ?? DateTime.now(),
+                                  initialDate: controller.selectedDate ?? DateTime.now(),
                                   firstDate: DateTime.now(),
                                   lastDate: DateTime.now().add(const Duration(days: 30)),
                                   builder: (context, child) {
@@ -372,14 +217,10 @@ class _HomePageState extends State<HomePage> {
                                   },
                                 );
                                 
-                                if (pickedDate != null && pickedDate != selectedDate) {
-                                  setState(() {
-                                    selectedDate = pickedDate;
-                                    selectedTime = null; // Reset time when date changes
+                                if (pickedDate != null && pickedDate != controller.selectedDate) {
+                                  setSheetState(() {
+                                    controller.selectDate(pickedDate);
                                   });
-                                  
-                                  // Generate time slots for the selected date
-                                  _generateAvailableTimeSlots();
                                 }
                               },
                               child: Container(
@@ -392,11 +233,11 @@ class _HomePageState extends State<HomePage> {
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      selectedDate == null
+                                      controller.selectedDate == null
                                           ? 'Seleccionar fecha'
-                                          : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}',
+                                          : '${controller.selectedDate!.day}/${controller.selectedDate!.month}/${controller.selectedDate!.year}',
                                       style: TextStyle(
-                                        color: selectedDate == null ? Colors.grey.shade600 : Colors.black,
+                                        color: controller.selectedDate == null ? Colors.grey.shade600 : Colors.black,
                                       ),
                                     ),
                                     Icon(Icons.calendar_today, color: Colors.blue.shade900),
@@ -417,7 +258,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                             const SizedBox(height: 8),
                             
-                            if (selectedDate == null)
+                            if (controller.selectedDate == null)
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
@@ -426,7 +267,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 child: const Text('Seleccione una fecha primero'),
                               )
-                            else if (availableTimeSlots.isEmpty)
+                            else if (controller.availableTimeSlots.isEmpty)
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
@@ -440,17 +281,17 @@ class _HomePageState extends State<HomePage> {
                                 height: 50,
                                 child: ListView.builder(
                                   scrollDirection: Axis.horizontal,
-                                  itemCount: availableTimeSlots.length,
+                                  itemCount: controller.availableTimeSlots.length,
                                   itemBuilder: (context, index) {
-                                    final timeSlot = availableTimeSlots[index];
-                                    final isSelected = selectedTime != null && 
-                                        selectedTime!.hour == timeSlot.hour && 
-                                        selectedTime!.minute == timeSlot.minute;
+                                    final timeSlot = controller.availableTimeSlots[index];
+                                    final isSelected = controller.selectedTime != null && 
+                                        controller.selectedTime!.hour == timeSlot.hour && 
+                                        controller.selectedTime!.minute == timeSlot.minute;
                                     
                                     return GestureDetector(
                                       onTap: () {
-                                        setState(() {
-                                          selectedTime = timeSlot;
+                                        setSheetState(() {
+                                          controller.selectTime(timeSlot);
                                         });
                                       },
                                       child: Container(
@@ -498,7 +339,7 @@ class _HomePageState extends State<HomePage> {
                                 contentPadding: const EdgeInsets.all(12),
                               ),
                               onChanged: (value) {
-                                appointmentDescription = value;
+                                controller.setAppointmentDescription(value);
                               },
                             ),
                             
@@ -509,7 +350,24 @@ class _HomePageState extends State<HomePage> {
                               width: double.infinity,
                               height: 50,
                               child: ElevatedButton(
-                                onPressed: _bookAppointment,
+                                onPressed: () async {
+                                  final result = await controller.bookAppointment(context);
+                                  if (result != null && result['success']) {
+                                    Navigator.of(context).pop(); // Cierra el Bottom Sheet
+
+                                    // Usa la ruta correcta definida en AppRoutes
+                                    Navigator.pushReplacementNamed(context, AppRoutes.appointmentsPage);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(result?['error'] ?? 'Error al agendar la cita'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+
+
+                                },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blue.shade900,
                                   foregroundColor: Colors.white,
@@ -549,101 +407,203 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Talleres'),
         backgroundColor: Colors.blue.shade900,
       ),
-      body: ListView.builder(
-        itemCount: workshops.length,
-        itemBuilder: (context, index) {
-          final workshop = workshops[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade300, width: 1),
-            ),
-            elevation: 5,
-            shadowColor: Colors.black.withOpacity(0.2),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Imagen del taller
-                  workshop['imagenes'] != null && workshop['imagenes'].isNotEmpty
-                      ? Image.memory(
-                          base64Decode(workshop['imagenes'][0]),
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.cover,
-                        )
-                      : Image.asset(
-                          'assets/images/descarga.jpeg',
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.cover,
-                        ),
-                  const SizedBox(width: 16),
-                  // Información del taller
-                  Expanded(
+      body: controller.workshops.isEmpty
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : ListView.builder(
+              itemCount: controller.workshops.length,
+              itemBuilder: (context, index) {
+                final workshop = controller.workshops[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 4,
+                  shadowColor: Colors.black.withOpacity(0.2),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Colors.white, Colors.grey.shade50],
+                      ),
+                    ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          workshop['nombre'] ?? 'Sin nombre',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                        // Header with image as background
+                        Container(
+                          height: 100,
+                          decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                            image: DecorationImage(
+                              image: workshop['imagenes'] != null && workshop['imagenes'].isNotEmpty
+                                  ? MemoryImage(base64Decode(workshop['imagenes'][0]))
+                                  : const AssetImage('assets/images/descarga.jpeg') as ImageProvider,
+                              fit: BoxFit.cover,
+                              colorFilter: ColorFilter.mode(
+                                Colors.black.withOpacity(0.3),
+                                BlendMode.darken,
+                              ),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        workshop['nombre'] ?? 'Sin nombre',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          shadows: [
+                                            Shadow(
+                                              offset: Offset(0, 1),
+                                              blurRadius: 3.0,
+                                              color: Colors.black54,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.location_on,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              workshop['direccion'] ?? 'No disponible',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white,
+                                                shadows: [
+                                                  Shadow(
+                                                    offset: Offset(0, 1),
+                                                    blurRadius: 2.0,
+                                                    color: Colors.black54,
+                                                  ),
+                                                ],
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          workshop['direccion'] ?? 'No disponible',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Texto "Tech Admin" en dos colores
-                        Text(
-                          'Tech Admin',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.blue.shade900,
-                          ),
-                        ),
-                        Text(
-                          'Tech Admin',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.orange.shade600,
+                        // Details and booking button
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.access_time,
+                                          size: 14,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${workshop['abre']?.toString().substring(0, 5) ?? '08:00'} - ${workshop['cierra']?.toString().substring(0, 5) ?? '18:00'}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.shade900,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            'Tech Admin',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.shade600,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            'Tech Admin',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => _showBookingBottomSheet(workshop),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue.shade900,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  elevation: 2,
+                                ),
+                                child: const Text(
+                                  'Agendar',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // Botón "Agendar"
-                  ElevatedButton(
-                    onPressed: () => _showBookingBottomSheet(workshop),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade900,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Agendar',
-                      style: TextStyle(fontSize: 12), // Texto más pequeño
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }
