@@ -29,7 +29,7 @@ class AppStrings {
 
   static const String password = 'Contraseña';
   static const String pleaseEnterPassword = 'Por favor, ingrese su contraseña';
-  static const String invalidPassword = 'Contraseña inválida, asegurate que contenga al menos 8 caracteres,\nun carácter especial, una letra mayúscula,\nuna letra minúscula y un número';
+  static const String invalidPassword = 'Asegurate que contenga al menos 8 caracteres:\nUn carácter especial \nUna letra mayúscula \nUna letra minúscula \nUn número';
   static const String confirmPassword = 'Confirma tu contraseña';
   static const String pleaseReEnterPassword = 'Por favor, reingresa tu contraseña';
   static const String passwordNotMatched = 'Las contraseñas no coinciden';
