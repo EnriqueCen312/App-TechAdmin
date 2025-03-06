@@ -152,7 +152,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                             const SizedBox(height: 24),
                             
-                            // Vehicle selection
+                            // Vehicle seleccion
                             const Text(
                               'Seleccione su vehículo:',
                               style: TextStyle(
