@@ -15,6 +15,7 @@ import '../values/app_theme.dart';
 import '../connection/auth/AuthController.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -100,154 +101,178 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const GradientBackground(
-            children: [
-              Text(
-                AppStrings.signInToYourNAccount,
-                style: AppTheme.titleLarge,
+    return WillPopScope(
+      onWillPop: () async {
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('¿Deseas salir?'),
+            content: const Text('¿Estás seguro que quieres salir de la aplicación?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('No'),
               ),
-              SizedBox(height: 6),
-             // Text(AppStrings.signInToYourAccount, style: AppTheme.bodySmall),
-             //probando
+              TextButton(
+                onPressed: () {
+                  SystemNavigator.pop();
+                },
+                child: const Text('Sí'),
+              ),
             ],
           ),
-          Form(
-            key: _formKey,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  AppTextFormField(
-                    controller: emailController,
-                    labelText: AppStrings.email,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    onChanged: (_) => _formKey.currentState?.validate(),
-                    validator: (value) {
-                      return value!.isEmpty
-                          ? AppStrings.pleaseEnterEmailAddress
-                          : AppConstants.emailRegex.hasMatch(value)
-                              ? null
-                              : AppStrings.invalidEmailAddress;
-                    },
-                  ),
-                  ValueListenableBuilder(
-                    valueListenable: passwordNotifier,
-                    builder: (_, passwordObscure, __) {
-                      return AppTextFormField(
-                        obscureText: passwordObscure,
-                        controller: passwordController,
-                        labelText: AppStrings.password,
-                        textInputAction: TextInputAction.done,
-                        keyboardType: TextInputType.visiblePassword,
-                        onChanged: (_) => _formKey.currentState?.validate(),
-                        validator: (value) {
-                          return value!.isEmpty
-                              ? AppStrings.pleaseEnterPassword
-                              : AppConstants.passwordRegex.hasMatch(value)
-                                  ? null
-                                  : AppStrings.invalidPassword;
-                        },
-                        suffixIcon: IconButton(
-                          onPressed: () =>
-                              passwordNotifier.value = !passwordObscure,
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size.square(48),
+        );
+        return false;
+      },
+      child: Scaffold(
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const GradientBackground(
+              children: [
+                Text(
+                  AppStrings.signInToYourNAccount,
+                  style: AppTheme.titleLarge,
+                ),
+                SizedBox(height: 6),
+               // Text(AppStrings.signInToYourAccount, style: AppTheme.bodySmall),
+               //probando
+              ],
+            ),
+            Form(
+              key: _formKey,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    AppTextFormField(
+                      controller: emailController,
+                      labelText: AppStrings.email,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      onChanged: (_) => _formKey.currentState?.validate(),
+                      validator: (value) {
+                        return value!.isEmpty
+                            ? AppStrings.pleaseEnterEmailAddress
+                            : AppConstants.emailRegex.hasMatch(value)
+                                ? null
+                                : AppStrings.invalidEmailAddress;
+                      },
+                    ),
+                    ValueListenableBuilder(
+                      valueListenable: passwordNotifier,
+                      builder: (_, passwordObscure, __) {
+                        return AppTextFormField(
+                          obscureText: passwordObscure,
+                          controller: passwordController,
+                          labelText: AppStrings.password,
+                          textInputAction: TextInputAction.done,
+                          keyboardType: TextInputType.visiblePassword,
+                          onChanged: (_) => _formKey.currentState?.validate(),
+                          validator: (value) {
+                            return value!.isEmpty
+                                ? AppStrings.pleaseEnterPassword
+                                : AppConstants.passwordRegex.hasMatch(value)
+                                    ? null
+                                    : AppStrings.invalidPassword;
+                          },
+                          suffixIcon: IconButton(
+                            onPressed: () =>
+                                passwordNotifier.value = !passwordObscure,
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size.square(48),
+                            ),
+                            icon: Icon(
+                              passwordObscure
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 20,
+                              color: Colors.black,
+                            ),
                           ),
-                          icon: Icon(
-                            passwordObscure
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            size: 20,
-                            color: Colors.black,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  TextButton(
-                    onPressed: () {},
-                    child: const Text(AppStrings.forgotPassword),
-                  ),
-                  const SizedBox(height: 20),
-                  ValueListenableBuilder(
-                    valueListenable: fieldValidNotifier,
-                    builder: (_, isValid, __) {
-                      return FilledButton(
-                        onPressed: isValid ? handleLogin : null,
-                        child: const Text(AppStrings.login),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: Colors.grey.shade200)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          AppStrings.orLoginWith,
-                          style: AppTheme.bodySmall.copyWith(
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      Expanded(child: Divider(color: Colors.grey.shade200)),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: SvgPicture.asset(Vectors.google, width: 14),
-                          label: const Text(
-                            AppStrings.google,
-                            style: TextStyle(color: Colors.black),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: SvgPicture.asset(Vectors.facebook, width: 14),
-                          label: const Text(
-                            AppStrings.facebook,
-                            style: TextStyle(color: Colors.black),
+                        );
+                      },
+                    ),
+                    TextButton(
+                      onPressed: () {},
+                      child: const Text(AppStrings.forgotPassword),
+                    ),
+                    const SizedBox(height: 20),
+                    ValueListenableBuilder(
+                      valueListenable: fieldValidNotifier,
+                      builder: (_, isValid, __) {
+                        return FilledButton(
+                          onPressed: isValid ? handleLogin : null,
+                          child: const Text(AppStrings.login),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: Colors.grey.shade200)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            AppStrings.orLoginWith,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: Colors.black,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        Expanded(child: Divider(color: Colors.grey.shade200)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {},
+                            icon: SvgPicture.asset(Vectors.google, width: 14),
+                            label: const Text(
+                              AppStrings.google,
+                              style: TextStyle(color: Colors.black),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {},
+                            icon: SvgPicture.asset(Vectors.facebook, width: 14),
+                            label: const Text(
+                              AppStrings.facebook,
+                              style: TextStyle(color: Colors.black),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                AppStrings.doNotHaveAnAccount,
-                style: AppTheme.bodySmall.copyWith(color: Colors.black),
-              ),
-              const SizedBox(width: 4),
-              TextButton(
-                onPressed: () => NavigationHelper.pushReplacementNamed(
-                  AppRoutes.register,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  AppStrings.doNotHaveAnAccount,
+                  style: AppTheme.bodySmall.copyWith(color: Colors.black),
                 ),
-                child: const Text(AppStrings.register),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: () => NavigationHelper.pushReplacementNamed(
+                    AppRoutes.register,
+                  ),
+                  child: const Text(AppStrings.register),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
